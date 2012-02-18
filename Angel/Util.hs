@@ -17,3 +17,6 @@ waitForWake wakeSig = atomically $ do
     case state of
         Just x -> writeTVar wakeSig Nothing
         Nothing -> retry
+
+void :: Monad m => m a -> m ()
+void m = m >> return ()

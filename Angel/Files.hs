@@ -29,5 +29,5 @@ getFile path cfg = do
     mh <- atomically $ readTChan resp
     hand <- case mh of
         Just hand -> return hand
-        Nothing -> error $ "could not open stdout/stderr file " ++ path
+        Nothing -> fail $ "could not open stdout/stderr file " ++ path
     return hand

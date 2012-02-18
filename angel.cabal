@@ -94,4 +94,4 @@ Executable angel
 
   Extensions: OverloadedStrings,ScopedTypeVariables,BangPatterns,ViewPatterns
   
-  Ghc-Options: -threaded 
+  Ghc-Options: -threaded

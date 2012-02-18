@@ -15,12 +15,9 @@ import qualified Data.Text as T
 import Angel.Job (syncSupervisors)
 import Angel.Data
 import Angel.Log (logger)
-import Angel.Util (waitForWake)
+import Angel.Util (waitForWake, void)
 
 import Debug.Trace (trace)
-
-void :: Monad m => m a -> m ()
-void m = m >> return ()
 
 -- |produce a mapping of name -> program for every program
 buildConfigMap :: HM.HashMap Name Value -> IO SpecKey
