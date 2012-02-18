@@ -13,7 +13,7 @@ import Control.Exception (try, bracket, SomeException)
 
 import Angel.Log (logger)
 import Angel.Data
-import Angel.Util (sleepSecs, void)
+import Angel.Util (waitForWake, sleepSecs, void)
 import Angel.Files (getFile)
 
 -- |launch the program specified by `id`, opening (and closing) the
@@ -109,8 +109,8 @@ startProcesses sharedGroupConfig starts = mapM_ spawnWatcher starts
 
 -- |diff the requested config against the actual run state, and
 -- |do any start/kill action necessary
-syncSupervisors :: TVar GroupConfig -> IO ()
-syncSupervisors sharedGroupConfig = do
+syncSupervisors :: TVar (Maybe Int) -> TVar GroupConfig -> IO ()
+syncSupervisors wakeSig sharedGroupConfig = do
    let log = logger "process-monitor"
    cfg <- atomically $ readTVar sharedGroupConfig
    let kills = mustKill cfg
@@ -120,7 +120,7 @@ syncSupervisors sharedGroupConfig = do
                 ++ ", must start=" ++ (show $ length starts))
    killProcesses kills
    startProcesses sharedGroupConfig starts
-
+   waitForWake wakeSig
     where
         mustKill cfg = map (fromJust . snd . snd) $ filter (runningAndDifferent $ spec cfg) $ M.assocs (running cfg)
         runningAndDifferent spec (id, (pg, pid)) = (isJust pid && (M.notMember id spec
@@ -130,8 +130,11 @@ syncSupervisors sharedGroupConfig = do
         mustStart cfg = map fst $ filter (isNew $ running cfg) $ M.assocs (spec cfg)
         isNew running (id, pg) = M.notMember id running
 
+notifySyncSupervisors :: TVar (Maybe Int) -> IO ()
+notifySyncSupervisors notifySig = atomically $ writeTVar notifySig $ Just 1
+
 -- |periodically run the supervisor sync independent of config reload,
 -- |just in case state gets funky b/c of theoretically possible timing
 -- |issues on reload
-pollStale :: TVar GroupConfig -> IO ()
-pollStale sharedGroupConfig = forever $ sleepSecs 10 >> syncSupervisors sharedGroupConfig
+pollStale :: TVar (Maybe Int) -> IO ()
+pollStale notifySig = forever $ sleepSecs 10 >> notifySyncSupervisors notifySig

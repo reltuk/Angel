@@ -12,7 +12,7 @@ import Data.String.Utils (split)
 import Data.List (foldl')
 import qualified Data.Text as T
 
-import Angel.Job (syncSupervisors)
+import Angel.Job (notifySyncSupervisors)
 import Angel.Data
 import Angel.Log (logger)
 import Angel.Util (waitForWake, void)
@@ -80,8 +80,8 @@ updateSpecConfig sharedGroupConfig spec = do
 
 -- |read the config file, update shared state with current spec, 
 -- |re-sync running supervisors, wait for the HUP TVar, then repeat!
-monitorConfig :: String -> TVar GroupConfig -> TVar (Maybe Int) -> IO ()
-monitorConfig configPath sharedGroupConfig wakeSig = do 
+monitorConfig :: String -> TVar GroupConfig -> TVar (Maybe Int) -> TVar (Maybe Int) -> IO ()
+monitorConfig configPath sharedGroupConfig wakeSig syncSig = do
     let log = logger "config-monitor"
     mspec <- processConfig configPath
     case mspec of 
@@ -91,6 +91,6 @@ monitorConfig configPath sharedGroupConfig wakeSig = do
         Right spec -> do 
             print spec
             atomically $ updateSpecConfig sharedGroupConfig spec
-            syncSupervisors sharedGroupConfig
+            notifySyncSupervisors syncSig
     waitForWake wakeSig
     log "HUP caught, reloading config"
