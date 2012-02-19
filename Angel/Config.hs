@@ -2,7 +2,7 @@ module Angel.Config where
 
 import Control.Exception (try, SomeException)
 import qualified Data.Map as M
-import Control.Monad (when, mapM_)
+import Control.Monad (when, mapM_, forever)
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar (readTVar, writeTVar)
 import Data.Configurator (load, getMap, Worth(..))
@@ -79,8 +79,8 @@ updateSpecConfig sharedGroupConfig spec = do
 
 -- |read the config file, update shared state with current spec, 
 -- |re-sync running supervisors, wait for the HUP TVar, then repeat!
-monitorConfig :: String -> TVar GroupConfig -> WorkSignal -> WorkSignal -> IO ()
-monitorConfig configPath sharedGroupConfig configWorkSig syncSig = do
+startMonitorConfigThread :: String -> TVar GroupConfig -> WorkSignal -> WorkSignal -> IO ()
+startMonitorConfigThread configPath sharedGroupConfig configWorkSig syncSig = forever $ do
     let log = logger "config-monitor"
     mspec <- processConfig configPath
     case mspec of 

@@ -1,4 +1,4 @@
-module Angel.Files (getFile, startFileManager) where
+module Angel.Files (getFile, startFileManagerThread) where
 
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan (readTChan, writeTChan, TChan, newTChan, newTChanIO)
@@ -8,7 +8,7 @@ import GHC.IO.Handle (hDuplicate)
 import Debug.Trace (trace)
 import Angel.Data (GroupConfig(..), FileRequest)
 
-startFileManager req = forever $ fileManager req
+startFileManagerThread req = forever $ fileManager req
 
 fileManager :: TChan FileRequest -> IO ()
 fileManager req = do 

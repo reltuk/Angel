@@ -109,8 +109,8 @@ startProcesses sharedGroupConfig starts = mapM_ spawnWatcher starts
 
 -- |diff the requested config against the actual run state, and
 -- |do any start/kill action necessary
-syncSupervisors :: WorkSignal -> TVar GroupConfig -> IO ()
-syncSupervisors workSig sharedGroupConfig = do
+startSyncSupervisorsThread :: WorkSignal -> TVar GroupConfig -> IO ()
+startSyncSupervisorsThread workSig sharedGroupConfig = forever $ do
    let log = logger "process-monitor"
    cfg <- atomically $ readTVar sharedGroupConfig
    let kills = mustKill cfg
@@ -133,5 +133,5 @@ syncSupervisors workSig sharedGroupConfig = do
 -- |periodically run the supervisor sync independent of config reload,
 -- |just in case state gets funky b/c of theoretically possible timing
 -- |issues on reload
-pollStale :: WorkSignal -> IO ()
-pollStale notifySig = forever $ sleepSecs 10 >> notifyWork notifySig
+startPollStaleThread :: WorkSignal -> IO ()
+startPollStaleThread notifySig = forever $ sleepSecs 10 >> notifyWork notifySig

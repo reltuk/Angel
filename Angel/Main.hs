@@ -13,10 +13,10 @@ import System.IO (hSetBuffering, BufferMode(..), stdout, stderr)
 import qualified Data.Map as M
 
 import Angel.Log (logger)
-import Angel.Config (monitorConfig)
+import Angel.Config (startMonitorConfigThread)
 import Angel.Data (GroupConfig(..))
-import Angel.Job (pollStale, syncSupervisors)
-import Angel.Files (startFileManager)
+import Angel.Job (startPollStaleThread, startSyncSupervisorsThread)
+import Angel.Files (startFileManagerThread)
 import Angel.Util (newWorkSignalIO, notifyWork)
 
 main = do 
@@ -40,7 +40,7 @@ main = do
     configWorkSig <- newWorkSignalIO
     installHandler sigHUP (Catch $ notifyWork configWorkSig) Nothing
 
-    forkIO $ startFileManager fileReqChan
+    forkIO $ startFileManagerThread fileReqChan
 
     -- The sync config signal, used by both pollStale and
     -- monitorConfig to notify the syncSupervisors thread
@@ -48,10 +48,10 @@ main = do
     syncSig <- newWorkSignalIO
 
     -- Start the syncSupervisors thread.
-    forkIO $ forever $ syncSupervisors syncSig sharedGroupConfig
+    forkIO $ startSyncSupervisorsThread syncSig sharedGroupConfig
 
     -- Fork off an ongoing state monitor to watch for inconsistent state
-    forkIO $ pollStale syncSig
+    forkIO $ startPollStaleThread syncSig
 
     -- Finally, run the config load/monitor thread
-    runInUnboundThread $ forever $ monitorConfig configPath sharedGroupConfig configWorkSig syncSig
+    runInUnboundThread $ startMonitorConfigThread configPath sharedGroupConfig configWorkSig syncSig
