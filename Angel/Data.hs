@@ -31,6 +31,7 @@ data Program = Program {
     name :: String,
     exec :: ExecSpec,
     delay :: Int,
+    minRestartDelay :: Maybe Int,
     stdout :: String,
     stderr :: String,
     workingDir :: Maybe FilePath
@@ -52,6 +53,7 @@ defaultProgram = Program{
     name="",
     exec=ExecStr "",
     delay=5,
+    minRestartDelay=Nothing,
     stdout="/dev/null",
     stderr="/dev/null",
     workingDir = Nothing

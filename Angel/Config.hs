@@ -59,6 +59,10 @@ modifyProg prog "delay" (Number n) | n < 0     = error "delay value must be >= 0
                                    | otherwise = prog{delay = round n}
 modifyProg prog "delay" _ = error "wrong type for field 'delay'; integer"
 
+modifyProg prog "minRestartDelay" (Number n) | n < 0     = error "minRestartDelay value must by >= 0"
+                                             | otherwise = prog{minRestartDelay = Just $ round n}
+modifyProg prog "minRestartDelay" _ = error "wrong type for field 'minRestartDelay'; integer"
+
 modifyProg prog "stdout" (String s) = prog{stdout = (T.unpack s)}
 modifyProg prog "stdout" _ = error "wrong type for field 'stdout'; string required"
 

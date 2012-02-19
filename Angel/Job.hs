@@ -1,6 +1,7 @@
 module Angel.Job where
 
 import Data.Maybe (isJust, fromJust)
+import Data.Time
 import System.Process (createProcess, proc, waitForProcess, ProcessHandle)
 import System.Process (terminateProcess, CreateProcess(..), StdStream(..))
 import Control.Concurrent
@@ -28,29 +29,30 @@ supervise sharedGroupConfig id = do
     case my_specM of
         Nothing -> log "QUIT (missing from config on restart)"
         Just my_spec ->
-            do fileResp <- try $ makeFiles my_spec cfg :: IO (Either SomeException (StdStream, StdStream))
+            do minRestartTime <- getMinRestartTime my_spec
+               fileResp <- try $ makeFiles my_spec cfg :: IO (Either SomeException (StdStream, StdStream))
                case fileResp of
-                 Right (attachOut, attachErr) -> do
-                   let (cmd:args) = splitExec my_spec
+                   Right (attachOut, attachErr) -> do
+                       let (cmd:args) = splitExec my_spec
 
-                   (_, _, _, p) <- createProcess (proc cmd args){
-                   std_out = attachOut,
-                   std_err = attachErr,
-                   cwd = workingDir my_spec
-                   }
+                       (_, _, _, p) <- createProcess (proc cmd args){
+                       std_out = attachOut,
+                       std_err = attachErr,
+                       cwd = workingDir my_spec
+                       }
 
-                   atomically $ updateRunningPid sharedGroupConfig my_spec id (Just p)
-                   log "RUNNING"
-                   waitForProcess p
-                   log "ENDED"
-                   atomically $ updateRunningPid sharedGroupConfig my_spec id (Nothing)
+                       atomically $ updateRunningPid sharedGroupConfig my_spec id (Just p)
+                       log "RUNNING"
+                       waitForProcess p
+                       log "ENDED"
+                       atomically $ updateRunningPid sharedGroupConfig my_spec id (Nothing)
 
-                   cfg <- atomically $ readTVar sharedGroupConfig
-                   if M.notMember id (spec cfg)
-                     then log "QUIT"
-                     else waitAndRestart log my_spec
-                 Left e -> do log $ "error creating log files: " ++ show e
-                              waitAndRestart log my_spec
+                       cfg <- atomically $ readTVar sharedGroupConfig
+                       if M.notMember id (spec cfg)
+                           then log "QUIT"
+                           else waitAndRestart log minRestartTime my_spec
+                   Left e -> do log $ "error creating log files: " ++ show e
+                                waitAndRestart log minRestartTime my_spec
     where
         makeFiles my_spec cfg = do
             attachOut <- case stdout my_spec of
@@ -62,11 +64,30 @@ supervise sharedGroupConfig id = do
                 other -> UseHandle `fmap` getFile other cfg
             return $ (attachOut, attachErr)
 
-        waitAndRestart log my_spec = do
+        waitAndRestart log minRestartTime my_spec = do
             log "WAITING"
-            sleepSecs $ delay my_spec
+            timeToWait <- getTimeToWait minRestartTime (delay my_spec)
+            threadDelay $ round $ timeToWait * 1000000
             log "RESTART"
             supervise sharedGroupConfig id
+
+        -- returns the earliest UTC time at which this program should
+        -- be restarted, as determined by the currentTime and minRestartDelay
+        getMinRestartTime my_spec = do
+            case minRestartDelay my_spec of
+                Nothing -> getCurrentTime
+                Just s  -> do utcTime <- getCurrentTime
+                              return (addUTCTime (fromIntegral s) utcTime)
+
+        -- returns the (fractional) number of seconds we should delay
+        -- before restarting the program.  Picks based on the current
+        -- time, minRestartTime (the earliest UTC time we should
+        -- restart, per getMinRestartTime) and delaySeconds.
+        getTimeToWait minRestartTime delaySeconds = do
+            currentTime <- getCurrentTime
+            let minRestartWait = diffUTCTime minRestartTime currentTime
+            let delayWait = fromIntegral delaySeconds
+            return $ max minRestartWait delayWait
 
 updateRunningPid sharedGroupConfig my_spec id mpid = do
     wcfg <- readTVar sharedGroupConfig
