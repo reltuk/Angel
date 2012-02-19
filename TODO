@@ -1,2 +1,10 @@
  * "Real" args-parsing/splitting to support quotes, etc (use some lib?)
+ * Related: support supplying the exec line as a list of strings. This
+   avoids the burden of correctly implementing shell parsing and
+   supplies the same expressiveness, at the expense of verbosity.
  * ghc 6.10 support? (patches welcome)
+ * minDelay support: the minimum amount of time that must pass between
+   two attempted spawns of a program.  A program with a minDelay of 5
+   and a delay of 0 would be respawned as soon as possible by angel,
+   assuming it had managed to run for at least 5 seconds on the
+   previous invocation.
