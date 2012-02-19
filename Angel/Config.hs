@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables, ViewPatterns #-}
+
 module Angel.Config where
 
 import Control.Exception (try, SomeException)
@@ -34,14 +36,24 @@ buildConfigMap cfg =
         M.insert basekey newprog m
     addToMap m _ _ = m
 
+execEmpty :: Program -> Bool
+execEmpty p =
+  case exec p of
+    ExecStr "" -> True
+    ExecList [] -> True
+    _ -> False
+
 checkConfigValues :: SpecKey -> IO SpecKey
 checkConfigValues progs = (mapM_ checkProgram $ M.elems progs) >> (return progs)
   where
-    checkProgram p = void $ when (exec p == "") $ error $ name p ++ " does not have an 'exec' specification"
+    checkProgram p = void $ when (execEmpty p) $ error $ name p ++ " does not have an 'exec' specification"
 
 modifyProg :: Program -> String -> Value -> Program
-modifyProg prog "exec" (String s) = prog{exec = (T.unpack s)}
-modifyProg prog "exec" _ = error "wrong type for field 'exec'; string required"
+modifyProg prog "exec" (String s) = prog{exec = ExecStr (T.unpack s)}
+modifyProg prog "exec" (List ls) = prog{exec = ExecList (map execListValue ls)}
+  where execListValue (String s) = T.unpack s
+        execListValue _ = error "wrong type for field 'exec'; string or list of strings required"
+modifyProg prog "exec" _ = error "wrong type for field 'exec'; string or list of strings required"
 
 modifyProg prog "delay" (Number n) | n < 0     = error "delay value must be >= 0"
                                    | otherwise = prog{delay = round n}

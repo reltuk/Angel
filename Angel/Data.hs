@@ -1,5 +1,6 @@
 module Angel.Data where
 
+import Data.String.Utils (strip, split)
 import qualified Data.Map as M
 import System.Process (createProcess, proc, waitForProcess, ProcessHandle)
 import System.Process (terminateProcess, CreateProcess(..), StdStream(..))
@@ -20,16 +21,27 @@ type RunKey = M.Map ProgramId (Program, Maybe ProcessHandle)
 type ProgramId = String
 type FileRequest = (String, TChan (Maybe Handle))
 
+data ExecSpec = ExecStr String
+              | ExecList [String]
+  deriving (Show, Eq, Ord)
+
 -- |the representation of a program is these 6 values, 
 -- |read from the config file
 data Program = Program {
     name :: String,
-    exec :: String,
+    exec :: ExecSpec,
     delay :: Int,
     stdout :: String,
     stderr :: String,
     workingDir :: Maybe FilePath
 } deriving (Show, Eq, Ord)
+
+-- |return a list of strings for the exec of a program.
+splitExec :: Program -> [String]
+splitExec p =
+  case exec p of
+    ExecStr s -> filter (/="") . map strip . split " " $ s
+    ExecList ss -> ss
 
 -- |Lower-level atoms in the configuration process
 type Spec = [Program]
@@ -38,7 +50,7 @@ type Spec = [Program]
 -- |are required, and must be overridden in the config file
 defaultProgram = Program{
     name="",
-    exec="",
+    exec=ExecStr "",
     delay=5,
     stdout="/dev/null",
     stderr="/dev/null",

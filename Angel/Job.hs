@@ -1,6 +1,5 @@
 module Angel.Job where
 
-import Data.String.Utils (split, strip)
 import Data.Maybe (isJust, fromJust)
 import System.Process (createProcess, proc, waitForProcess, ProcessHandle)
 import System.Process (terminateProcess, CreateProcess(..), StdStream(..))
@@ -32,7 +31,7 @@ supervise sharedGroupConfig id = do
             do fileResp <- try $ makeFiles my_spec cfg :: IO (Either SomeException (StdStream, StdStream))
                case fileResp of
                  Right (attachOut, attachErr) -> do
-                   let (cmd, args) = cmdSplit $ exec my_spec
+                   let (cmd:args) = splitExec my_spec
 
                    (_, _, _, p) <- createProcess (proc cmd args){
                    std_out = attachOut,
@@ -53,9 +52,6 @@ supervise sharedGroupConfig id = do
                  Left e -> do log $ "error creating log files: " ++ show e
                               waitAndRestart log my_spec
     where
-        cmdSplit fullcmd = (head parts, tail parts)
-            where parts = (filter (/="") . map strip . split " ") fullcmd
-
         makeFiles my_spec cfg = do
             attachOut <- case stdout my_spec of
                 ""    -> return Inherit
