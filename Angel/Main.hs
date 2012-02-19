@@ -17,11 +17,7 @@ import Angel.Config (monitorConfig)
 import Angel.Data (GroupConfig(..))
 import Angel.Job (pollStale, syncSupervisors)
 import Angel.Files (startFileManager)
-
--- |Signal handler: when a HUP is trapped, write to the wakeSig Tvar
--- |to make the configuration monitor loop cycle/reload
-handleHup :: TVar (Maybe Int) -> IO ()
-handleHup wakeSig = atomically $ writeTVar wakeSig $ Just 1
+import Angel.Util (newWorkSignalIO, notifyWork)
 
 main = do 
     hSetBuffering stdout LineBuffering
@@ -41,15 +37,15 @@ main = do
     sharedGroupConfig <- newTVarIO $ GroupConfig M.empty M.empty fileReqChan
 
     -- The wake signal, set by the HUP handler to wake the monitor loop
-    wakeSig <- newTVarIO Nothing
-    installHandler sigHUP (Catch $ handleHup wakeSig) Nothing
+    configWorkSig <- newWorkSignalIO
+    installHandler sigHUP (Catch $ notifyWork configWorkSig) Nothing
 
     forkIO $ startFileManager fileReqChan
 
     -- The sync config signal, used by both pollStale and
     -- monitorConfig to notify the syncSupervisors thread
     -- that it is time to do work.
-    syncSig <- newTVarIO Nothing
+    syncSig <- newWorkSignalIO
 
     -- Start the syncSupervisors thread.
     forkIO $ forever $ syncSupervisors syncSig sharedGroupConfig
@@ -58,4 +54,4 @@ main = do
     forkIO $ pollStale syncSig
 
     -- Finally, run the config load/monitor thread
-    runInUnboundThread $ forever $ monitorConfig configPath sharedGroupConfig wakeSig syncSig
+    runInUnboundThread $ forever $ monitorConfig configPath sharedGroupConfig configWorkSig syncSig
